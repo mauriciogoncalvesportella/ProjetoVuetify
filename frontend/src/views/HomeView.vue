@@ -616,7 +616,7 @@ onMounted(() => {
           </v-btn>
           <v-spacer></v-spacer>
           <v-btn color="primary" @click="salvarConfiguracoes">
-            <v-icon class="mr-2">mdi-content-save</v-icon>
+            <v-icon class="mr-2"<v-row>>mdi-content-save</v-icon>
             Salvar
           </v-btn>
         </v-card-actions>

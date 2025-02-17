@@ -1,10 +1,87 @@
 <script setup lang="ts">
 import router from '@/router'
-import { Title } from 'chart.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useTheme } from 'vuetify'
+import { useRouter } from 'vue-router'
 
-// Definições de tipos
+interface UserProfile {
+  id: number
+  name: string
+  email: string
+  role: string
+  avatar?: string
+  department: string
+  phone: string
+  joinDate: Date
+  lastAccess: Date
+}
+
+// Estados do perfil
+const userProfile = ref<UserProfile>({
+  id: 1,
+  name: 'João Silva',
+  email: 'joao.silva@datacompany.com',
+  role: 'Administrador',
+  department: 'TI',
+  phone: '(11) 99999-9999',
+  avatar: undefined,
+  joinDate: new Date('2023-01-15'),
+  lastAccess: new Date('2024-02-14T10:30:00')
+})
+
+const showProfileDialog = ref(false)
+const editMode = ref(false)
+const loading = ref(false)
+const saving = ref(false)
+
+// Método saveProfile
+const saveProfile = async () => {
+  try {
+    saving.value = true
+    // Implement your API call here
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    notifications.value.push({
+      id: Date.now(),
+      title: 'Perfil Atualizado',
+      message: 'Suas informações foram atualizadas com sucesso.',
+      type: 'success',
+      date: new Date(),
+      read: false
+    })
+    
+    editMode.value = false
+  } catch (error) {
+    notifications.value.push({
+      id: Date.now(),
+      title: 'Erro ao Atualizar',
+      message: 'Não foi possível atualizar o perfil. Tente novamente.',
+      type: 'error',
+      date: new Date(),
+      read: false
+    })
+  } finally {
+    saving.value = false
+  }
+}
+
+// Método resetProfile
+const resetProfile = () => {
+  editMode.value = false
+  userProfile.value = {
+    id: 1,
+    name: 'João Silva',
+    email: 'joao.silva@datacompany.com',
+    role: 'Administrador',
+    department: 'TI',
+    phone: '(11) 99999-9999',
+    avatar: undefined,
+    joinDate: new Date('2023-01-15'),
+    lastAccess: new Date('2024-02-14T10:30:00')
+  }
+}
+
+// Tipos
 type BorderRadiusType = 'default' | 'rounded' | 'square'
 type DensityType = 'compact' | 'default' | 'comfortable'
 type SidebarPositionType = 'left' | 'right'
@@ -12,28 +89,19 @@ type ChartType = 'line' | 'bar' | 'pie'
 type DashboardLayoutType = 'default' | 'compact' | 'expanded'
 
 interface SystemSettings {
-  // Interface
   sidebarPosition: SidebarPositionType
   menuCompact: boolean
   borderRadius: BorderRadiusType
-
-  // Aparência
   density: DensityType
   fontScale: number
   animationsEnabled: boolean
-
-  // Preferências
   dateFormat: string
   autoRefresh: boolean
   refreshInterval: number
   defaultView: string
-
-  // Notificações
   emailNotifications: boolean
   pushNotifications: boolean
   notificationSound: boolean
-
-  // Dashboard
   defaultChartType: ChartType
   showGridLines: boolean
   showLegend: boolean
@@ -54,7 +122,7 @@ const borderRadiusMap: Record<BorderRadiusType, string> = {
   default: '4px',
   rounded: '12px',
   square: '0px'
-} as const
+}
 
 // Estados reativos
 const systemSettings = ref<SystemSettings>({
@@ -104,6 +172,7 @@ const notifications = ref<SystemNotification[]>([
   }
 ])
 
+// Estados da interface
 const showSettingsDialog = ref(false)
 const showNotificationsDialog = ref(false)
 const drawer = ref(false)
@@ -111,7 +180,7 @@ const search = ref('')
 const theme = ref('light')
 const vuetifyTheme = useTheme()
 
-// Funções de configurações
+// Funções de configuração
 const applyVisualSettings = () => {
   const app = document.querySelector('.v-application') as HTMLElement
   if (app) {
@@ -119,52 +188,43 @@ const applyVisualSettings = () => {
   }
 
   document.documentElement.style.fontSize = `${systemSettings.value.fontScale * 100}%`
+  document.documentElement.style.setProperty('--v-border-radius', borderRadiusMap[systemSettings.value.borderRadius])
 
-  const borderRadius = systemSettings.value.borderRadius
-  document.documentElement.style.setProperty('--v-border-radius', borderRadiusMap[borderRadius])
-
-  if (systemSettings.value.sidebarPosition === 'right') {
-    document.querySelector('.v-navigation-drawer')?.classList.add('v-navigation-drawer--right')
-  } else {
-    document.querySelector('.v-navigation-drawer')?.classList.remove('v-navigation-drawer--right')
+  const navDrawer = document.querySelector('.v-navigation-drawer')
+  if (navDrawer) {
+    systemSettings.value.sidebarPosition === 'right' 
+      ? navDrawer.classList.add('v-navigation-drawer--right')
+      : navDrawer.classList.remove('v-navigation-drawer--right')
   }
 }
 
-const applyNotificationSettings = () => {
+const applyNotificationSettings = async () => {
   if (systemSettings.value.notificationSound) {
-    console.log('Som de notificação ativado')
+    // Implementar lógica de som
   }
 
-  if (systemSettings.value.pushNotifications) {
-    requestNotificationPermission()
-  }
-}
-
-const requestNotificationPermission = async () => {
-  if ('Notification' in window) {
+  if (systemSettings.value.pushNotifications && 'Notification' in window) {
     try {
       const permission = await Notification.requestPermission()
-      if (permission === 'granted') {
-        console.log('Notificações push ativadas')
-      }
+      console.log('Push notifications:', permission === 'granted' ? 'enabled' : 'disabled')
     } catch (error) {
-      console.error('Erro ao solicitar permissão de notificação:', error)
+      console.error('Notification permission error:', error)
     }
   }
 }
 
 const applyDashboardSettings = () => {
-  const dashboardEvent = new CustomEvent('dashboard-settings-changed', {
+  window.dispatchEvent(new CustomEvent('dashboard-settings-changed', {
     detail: {
       chartType: systemSettings.value.defaultChartType,
       layout: systemSettings.value.dashboardLayout,
       showGridLines: systemSettings.value.showGridLines,
       showLegend: systemSettings.value.showLegend
     }
-  })
-  window.dispatchEvent(dashboardEvent)
+  }))
 }
 
+// Gerenciamento de configurações
 const saveSettings = () => {
   localStorage.setItem('systemSettings', JSON.stringify(systemSettings.value))
   applyVisualSettings()
@@ -206,7 +266,7 @@ const resetSettings = () => {
   saveSettings()
 }
 
-// Funções de notificação
+// Gerenciamento de notificações
 const markAsRead = (notificationId: number) => {
   const notification = notifications.value.find(n => n.id === notificationId)
   if (notification) {
@@ -214,9 +274,11 @@ const markAsRead = (notificationId: number) => {
   }
 }
 
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
+const unreadCount = computed(() => 
+  notifications.value.filter(n => !n.read).length
+)
 
-// Dados de navegação
+// Navegação
 const navigationItems = [
   { title: 'Dashboard', icon: 'mdi-view-dashboard', path: '/' },
   { title: 'Projetos', icon: 'mdi-folder', path: '/projects' },
@@ -225,7 +287,7 @@ const navigationItems = [
   { title: 'Relatórios', icon: 'mdi-chart-box', path: '/reports' }
 ]
 
-const userMenuItems = [
+const userMenuItems = computed(() => [
   {
     title: 'Perfil',
     icon: 'mdi-account-circle',
@@ -243,7 +305,7 @@ const userMenuItems = [
     icon: 'mdi-bell',
     action: 'notifications',
     description: 'Gerencie suas notificações',
-    badge: unreadCount
+    badge: unreadCount.value
   },
   { divider: true },
   {
@@ -252,39 +314,54 @@ const userMenuItems = [
     action: 'logout',
     description: 'Encerrar sessão'
   }
-]
+])
 
-// Funções gerais
+// Funções da interface
 const toggleTheme = () => {
   theme.value = theme.value === 'light' ? 'dark' : 'light'
   vuetifyTheme.global.name.value = theme.value
 }
 
 const handleLogout = async () => {
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('user')
-  await router.push('/login')
-  window.location.reload()
-}
-
-const handleUserAction = async (action: string) => {
-  switch (action) {
-    case 'profile':
-      console.log('Abrindo perfil do usuário')
-      break
-    case 'settings':
-      showSettingsDialog.value = true
-      break
-    case 'notifications':
-      showNotificationsDialog.value = true
-      break
-    case 'logout':
-      await handleLogout()
-      break
+  try {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    await router.push('/login')
+  } catch (error) {
+    console.error('Logout error:', error)
+    notifications.value.push({
+      id: Date.now(),
+      title: 'Erro ao Sair',
+      message: 'Não foi possível encerrar a sessão. Tente novamente.',
+      type: 'error',
+      date: new Date(),
+      read: false
+    })
   }
 }
 
-// Watch e Lifecycle hooks
+const handleUserAction = async (action: string) => {
+  try {
+    switch (action) {
+      case 'profile':
+        showProfileDialog.value = true
+        break
+      case 'settings':
+        showSettingsDialog.value = true
+        break
+      case 'notifications':
+        showNotificationsDialog.value = true
+        break
+      case 'logout':
+        await handleLogout()
+        break
+    }
+  } catch (error) {
+    console.error('User action error:', error)
+  }
+}
+
+// Watchers e lifecycle hooks
 watch(theme, (newTheme) => {
   vuetifyTheme.global.name.value = newTheme
 })
@@ -298,7 +375,12 @@ watch(systemSettings, () => {
 onMounted(() => {
   const savedSettings = localStorage.getItem('systemSettings')
   if (savedSettings) {
-    systemSettings.value = JSON.parse(savedSettings)
+    try {
+      systemSettings.value = JSON.parse(savedSettings)
+    } catch (error) {
+      console.error('Error loading settings:', error)
+      resetSettings()
+    }
   }
   applyVisualSettings()
   applyNotificationSettings()
@@ -308,7 +390,7 @@ onMounted(() => {
 
 <template>
   <v-app :theme="theme">
-    <!-- === BARRA SUPERIOR === -->
+    <!-- Barra Superior -->
     <v-app-bar color="primary">
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
       <v-toolbar-title>Data Company Sistemas</v-toolbar-title>
@@ -345,9 +427,10 @@ onMounted(() => {
         <template v-slot:activator="{ props }">
           <v-btn class="ml-2" v-bind="props">
             <v-avatar size="32" class="mr-2">
-              <v-icon>mdi-account</v-icon>
+              <v-img v-if="userProfile.avatar" :src="userProfile.avatar" alt="Avatar" />
+              <v-icon v-else>mdi-account</v-icon>
             </v-avatar>
-            <span class="hidden-sm-and-down">Usuário</span>
+            <span class="hidden-sm-and-down">{{ userProfile.name }}</span>
             <v-icon right>mdi-chevron-down</v-icon>
           </v-btn>
         </template>
@@ -374,7 +457,7 @@ onMounted(() => {
       </v-menu>
     </v-app-bar>
 
-    <!-- === MENU LATERAL === -->
+    <!-- Menu Lateral -->
     <v-navigation-drawer v-model="drawer" temporary>
       <v-list>
         <v-list-item
@@ -387,14 +470,14 @@ onMounted(() => {
       </v-list>
     </v-navigation-drawer>
 
-    <!-- === CONTEÚDO PRINCIPAL === -->
+    <!-- Conteúdo Principal -->
     <v-main>
       <v-container fluid>
         <slot></slot>
       </v-container>
     </v-main>
 
-    <!-- === DIÁLOGO DE NOTIFICAÇÕES === -->
+    <!-- Diálogo de Notificações -->
     <v-dialog v-model="showNotificationsDialog" max-width="500">
       <v-card>
         <v-card-title class="d-flex align-center">
@@ -459,7 +542,7 @@ onMounted(() => {
       </v-card>
     </v-dialog>
 
-    <!-- === DIÁLOGO DE CONFIGURAÇÕES === -->
+    <!-- Diálogo de Configurações -->
     <v-dialog v-model="showSettingsDialog" max-width="700">
       <v-card>
         <v-card-title class="d-flex align-center">
@@ -615,7 +698,152 @@ onMounted(() => {
       </v-card>
     </v-dialog>
 
-    <!-- === RODAPÉ === -->
+    <!-- Diálogo de Perfil -->
+    <v-dialog v-model="showProfileDialog" max-width="800">
+      <v-card>
+        <v-toolbar color="primary" class="text-white">
+          <v-toolbar-title>Perfil do Usuário</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-btn icon @click="showProfileDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-toolbar>
+
+        <v-card-text class="pa-6">
+          <v-container v-if="!loading">
+            <v-row>
+              <!-- Basic Info -->
+              <v-col cols="12" md="4" class="text-center">
+                <v-avatar size="120" color="primary">
+                  <v-img
+                    v-if="userProfile.avatar"
+                    :src="userProfile.avatar"
+                    alt="Avatar"
+                  ></v-img>
+                  <v-icon v-else size="48" color="white">mdi-account</v-icon>
+                </v-avatar>
+                <div class="mt-4">
+                  <h2 class="text-h5">{{ userProfile.name }}</h2>
+                  <p class="text-body-1 text-medium-emphasis">{{ userProfile.role }}</p>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="8">
+                <v-form @submit.prevent="saveProfile">
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="userProfile.name"
+                        label="Nome"
+                        :readonly="!editMode"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-text-field>
+                    </v-col>
+
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="userProfile.email"
+                        label="E-mail"
+                        :readonly="!editMode"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-text-field>
+                    </v-col>
+
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="userProfile.department"
+                        label="Departamento"
+                        :readonly="!editMode"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-text-field>
+                    </v-col>
+
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="userProfile.phone"
+                        label="Telefone"
+                        :readonly="!editMode"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-text-field>
+                    </v-col>
+                  </v-row>
+
+                  <!-- Additional Info -->
+                  <v-row class="mt-4">
+                    <v-col cols="12">
+                      <h3 class="text-h6 mb-4">Informações Adicionais</h3>
+                      <v-list class="profile-info-list">
+                        <v-list-item>
+                          <template v-slot:prepend>
+                            <v-icon color="primary">mdi-calendar</v-icon>
+                          </template>
+                          <v-list-item-title>Data de Ingresso</v-list-item-title>
+                          <v-list-item-subtitle>
+                            {{ new Date(userProfile.joinDate).toLocaleDateString() }}
+                          </v-list-item-subtitle>
+                        </v-list-item>
+
+                        <v-list-item>
+                          <template v-slot:prepend>
+                            <v-icon color="primary">mdi-clock-outline</v-icon>
+                          </template>
+                          <v-list-item-title>Último Acesso</v-list-item-title>
+                          <v-list-item-subtitle>
+                            {{ new Date(userProfile.lastAccess).toLocaleString() }}
+                          </v-list-item-subtitle>
+                        </v-list-item>
+                      </v-list>
+                    </v-col>
+                  </v-row>
+                </v-form>
+              </v-col>
+            </v-row>
+          </v-container>
+
+          <v-skeleton-loader
+            v-else
+            type="card-avatar, article, actions"
+          ></v-skeleton-loader>
+        </v-card-text>
+
+        <v-divider></v-divider>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="resetProfile"
+            :disabled="loading || !editMode"
+          >
+            Cancelar
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="text"
+            @click="editMode = !editMode"
+            :disabled="loading"
+          >
+            {{ editMode ? 'Cancelar Edição' : 'Editar' }}
+          </v-btn>
+          <v-btn
+            v-if="editMode"
+            color="primary"
+            @click="saveProfile"
+            :loading="saving"
+            :disabled="loading"
+          >
+            Salvar
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rodapé -->
     <v-footer app class="d-flex flex-column">
       <div class="w-100 d-flex align-center justify-space-between px-4">
         <span>&copy; {{ new Date().getFullYear() }} Data Company Sistemas</span>
@@ -625,22 +853,19 @@ onMounted(() => {
 </template>
 
 <style>
-/* Estilos base */
-.v-app-bar {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+:root {
+  --v-border-radius: 4px;
 }
 
-.v-navigation-drawer {
-  background-color: #f5f5f5;
+.v-application * {
+  transition: all 0.3s ease;
 }
 
-.v-list-item {
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.v-list-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+.v-card,
+.v-btn,
+.v-text-field,
+.v-select {
+  border-radius: var(--v-border-radius) !important;
 }
 
 /* Estilos para diferentes densidades */
@@ -652,11 +877,6 @@ onMounted(() => {
   padding: 4px 12px;
 }
 
-/* Transições suaves para mudanças */
-.v-application * {
-  transition: all 0.3s ease;
-}
-
 /* Estilos para diferentes layouts do dashboard */
 .dashboard-layout-compact .v-card {
   margin: 4px;
@@ -666,16 +886,21 @@ onMounted(() => {
   margin: 16px;
 }
 
-/* Variáveis CSS personalizadas */
-:root {
-  --v-border-radius: 4px;
+/* Estilos específicos do perfil */
+.profile-info-list {
+  background-color: transparent;
 }
 
-/* Aplicar border-radius personalizado */
-.v-card,
-.v-btn,
-.v-text-field,
-.v-select {
-  border-radius: var(--v-border-radius) !important;
+.v-list-item.profile-info {
+  padding: 12px 0;
+}
+
+/* Estilos adicionais */
+.v-toolbar.v-toolbar--density-default {
+  border-radius: var(--v-border-radius) var(--v-border-radius) 0 0;
+}
+
+.v-dialog > .v-card {
+  border-radius: var(--v-border-radius);
 }
 </style>
